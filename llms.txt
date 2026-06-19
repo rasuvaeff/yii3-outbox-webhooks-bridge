@@ -1,0 +1,44 @@
+# rasuvaeff/yii3-outbox-webhooks-bridge
+
+Bridges yii3-outbox and yii3-webhooks for durable at-least-once webhook delivery.
+
+## Install
+
+```bash
+composer require rasuvaeff/yii3-outbox-webhooks-bridge
+```
+
+## Rules
+
+- `OutboxWebhookPublisher` implements `PublisherInterface` from `yii3-outbox`.
+- Each `OutboxMessage` is converted to `WebhookEvent` (id/type/payload/createdAt mapped 1:1).
+- Endpoints are resolved per message type via `WebhookEndpointProvider`.
+- Dispatcher failure or `Failed` delivery status → `PublishException` → outbox retries.
+- No endpoints for a type → silent success (zero deliveries).
+- Fanout is all-or-nothing: any failure throws; receivers must be idempotent on event id.
+- No DI config provided — app wires `OutboxWebhookPublisher` to `Processor`.
+
+## API
+
+```php
+use Rasuvaeff\Yii3OutboxWebhooksBridge\ConfigWebhookEndpointProvider;
+use Rasuvaeff\Yii3OutboxWebhooksBridge\OutboxWebhookPublisher;
+use Rasuvaeff\Yii3Webhooks\WebhookEndpoint;
+
+// Static endpoint config
+$endpointProvider = new ConfigWebhookEndpointProvider(map: [
+    'order.created' => [new WebhookEndpoint(url: 'https://example.com/hook', secret: 'secret')],
+]);
+
+// Publisher (inject your WebhookDispatcher + WebhookDeliveryStorage)
+$publisher = new OutboxWebhookPublisher(
+    dispatcher: $dispatcher,
+    endpointProvider: $endpointProvider,
+    deliveryStorage: $deliveryStorage,
+);
+
+// Custom endpoint provider
+class DbEndpointProvider implements WebhookEndpointProvider {
+    public function getEndpointsForType(string $type): array { /* DB lookup */ }
+}
+```
