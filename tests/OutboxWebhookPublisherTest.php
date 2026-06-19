@@ -113,6 +113,57 @@ final class OutboxWebhookPublisherTest extends TestCase
     }
 
     #[Test]
+    public function includesUnknownErrorInMessageWhenLastErrorIsNull(): void
+    {
+        $dispatcher = $this->createStub(WebhookDispatcher::class);
+        $dispatcher->method('dispatch')->willReturnCallback(
+            fn(WebhookEvent $event, WebhookEndpoint $endpoint): WebhookDelivery
+                => WebhookDelivery::create(event: $event, endpoint: $endpoint)
+                    ->withStatus(WebhookDeliveryStatus::Failed),
+        );
+
+        $provider = new ConfigWebhookEndpointProvider(map: ['order.created' => [$this->endpoint]]);
+        $publisher = new OutboxWebhookPublisher(
+            dispatcher: $dispatcher,
+            endpointProvider: $provider,
+            deliveryStorage: $this->storage,
+        );
+
+        try {
+            $publisher->publish($this->makeMessage(type: 'order.created'));
+            $this->fail('Expected PublishException');
+        } catch (PublishException $e) {
+            $this->assertStringContainsString('unknown error', $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function includesActualLastErrorInMessageWhenSet(): void
+    {
+        $dispatcher = $this->createStub(WebhookDispatcher::class);
+        $dispatcher->method('dispatch')->willReturnCallback(
+            fn(WebhookEvent $event, WebhookEndpoint $endpoint): WebhookDelivery
+                => WebhookDelivery::create(event: $event, endpoint: $endpoint)
+                    ->withAttempt(new \DateTimeImmutable(), 'HTTP 503 Service Unavailable')
+                    ->withStatus(WebhookDeliveryStatus::Failed),
+        );
+
+        $provider = new ConfigWebhookEndpointProvider(map: ['order.created' => [$this->endpoint]]);
+        $publisher = new OutboxWebhookPublisher(
+            dispatcher: $dispatcher,
+            endpointProvider: $provider,
+            deliveryStorage: $this->storage,
+        );
+
+        try {
+            $publisher->publish($this->makeMessage(type: 'order.created'));
+            $this->fail('Expected PublishException');
+        } catch (PublishException $e) {
+            $this->assertStringContainsString('HTTP 503 Service Unavailable', $e->getMessage());
+        }
+    }
+
+    #[Test]
     public function savesDeliveryBeforeThrowingOnFailedStatus(): void
     {
         $dispatcher = $this->createStub(WebhookDispatcher::class);
