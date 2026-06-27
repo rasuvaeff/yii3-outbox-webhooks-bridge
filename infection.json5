@@ -8,6 +8,7 @@
         "summary": "build/infection-summary.log"
     },
     "tmpDir": "build/infection",
+    "testFramework": "testo",
     "minMsi": 100,
     "mutators": {
         "@default": true
