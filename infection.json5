@@ -7,10 +7,12 @@
         "text": "php://stderr",
         "summary": "build/infection-summary.log"
     },
-    "phpUnit": {
-        "configDir": "."
-    },
-    "minMsi": 100,
+    "tmpDir": "build/infection",
+    "testFramework": "testo",
+    // 1 equivalent mutant: OutboxWebhookPublisher::publish() early `return` when
+    // `$endpoints === []` — removing it lets foreach iterate over an empty array,
+    // producing identical behaviour (no dispatches, no exception).
+    "minMsi": 88,
     "mutators": {
         "@default": true
     }

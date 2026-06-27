@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3OutboxWebhooksBridge\Tests;
 
 use DateTimeImmutable;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Outbox\OutboxMessage;
 use Rasuvaeff\Yii3Outbox\PublishException;
 use Rasuvaeff\Yii3OutboxWebhooksBridge\ConfigWebhookEndpointProvider;
@@ -15,29 +12,31 @@ use Rasuvaeff\Yii3OutboxWebhooksBridge\OutboxWebhookPublisher;
 use Rasuvaeff\Yii3Webhooks\InMemoryDeliveryStorage;
 use Rasuvaeff\Yii3Webhooks\WebhookDelivery;
 use Rasuvaeff\Yii3Webhooks\WebhookDeliveryStatus;
-use Rasuvaeff\Yii3Webhooks\WebhookDispatcher;
 use Rasuvaeff\Yii3Webhooks\WebhookEndpoint;
 use Rasuvaeff\Yii3Webhooks\WebhookEvent;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Lifecycle\BeforeTest;
+use Testo\Test;
 
-#[CoversClass(OutboxWebhookPublisher::class)]
-final class OutboxWebhookPublisherTest extends TestCase
+#[Test]
+#[Covers(OutboxWebhookPublisher::class)]
+final class OutboxWebhookPublisherTest
 {
     private InMemoryDeliveryStorage $storage;
     private WebhookEndpoint $endpoint;
 
-    #[\Override]
-    protected function setUp(): void
+    #[BeforeTest]
+    public function setUp(): void
     {
         $this->storage = new InMemoryDeliveryStorage();
         $this->endpoint = new WebhookEndpoint(url: 'https://example.com/hooks', secret: 'secret');
     }
 
-    #[Test]
     public function succeedsWhenDispatcherReturnsDeliveredDelivery(): void
     {
-        $dispatcher = $this->createStub(WebhookDispatcher::class);
-        $dispatcher->method('dispatch')->willReturnCallback(
-            fn(WebhookEvent $event, WebhookEndpoint $endpoint): WebhookDelivery
+        $dispatcher = (new FakeWebhookDispatcher())->whenDispatch(
+            static fn(WebhookEvent $event, WebhookEndpoint $endpoint): WebhookDelivery
                 => WebhookDelivery::create(event: $event, endpoint: $endpoint)
                     ->withStatus(WebhookDeliveryStatus::Delivered),
         );
@@ -51,14 +50,12 @@ final class OutboxWebhookPublisherTest extends TestCase
 
         $publisher->publish($this->makeMessage(type: 'order.created'));
 
-        $this->assertCount(1, $this->storage);
+        Assert::count($this->storage, 1);
     }
 
-    #[Test]
     public function succeedsSilentlyWhenNoEndpointsConfigured(): void
     {
-        $dispatcher = $this->createMock(WebhookDispatcher::class);
-        $dispatcher->expects($this->never())->method('dispatch');
+        $dispatcher = new FakeWebhookDispatcher();
 
         $publisher = new OutboxWebhookPublisher(
             dispatcher: $dispatcher,
@@ -68,15 +65,13 @@ final class OutboxWebhookPublisherTest extends TestCase
 
         $publisher->publish($this->makeMessage(type: 'order.created'));
 
-        $this->assertCount(0, $this->storage);
+        Assert::count($this->storage, 0);
     }
 
-    #[Test]
     public function throwsPublishExceptionWhenDeliveryStatusIsFailed(): void
     {
-        $dispatcher = $this->createStub(WebhookDispatcher::class);
-        $dispatcher->method('dispatch')->willReturnCallback(
-            fn(WebhookEvent $event, WebhookEndpoint $endpoint): WebhookDelivery
+        $dispatcher = (new FakeWebhookDispatcher())->whenDispatch(
+            static fn(WebhookEvent $event, WebhookEndpoint $endpoint): WebhookDelivery
                 => WebhookDelivery::create(event: $event, endpoint: $endpoint)
                     ->withStatus(WebhookDeliveryStatus::Failed),
         );
@@ -88,16 +83,18 @@ final class OutboxWebhookPublisherTest extends TestCase
             deliveryStorage: $this->storage,
         );
 
-        $this->expectException(PublishException::class);
-
-        $publisher->publish($this->makeMessage(type: 'order.created'));
+        try {
+            $publisher->publish($this->makeMessage(type: 'order.created'));
+            Assert::fail('Expected PublishException');
+        } catch (PublishException) {
+        }
     }
 
-    #[Test]
     public function throwsPublishExceptionWhenDispatcherThrows(): void
     {
-        $dispatcher = $this->createStub(WebhookDispatcher::class);
-        $dispatcher->method('dispatch')->willThrowException(new \RuntimeException('Connection refused'));
+        $dispatcher = (new FakeWebhookDispatcher())->whenDispatch(
+            static fn(): never => throw new \RuntimeException('Connection refused'),
+        );
 
         $provider = new ConfigWebhookEndpointProvider(map: ['order.created' => [$this->endpoint]]);
         $publisher = new OutboxWebhookPublisher(
@@ -106,18 +103,18 @@ final class OutboxWebhookPublisherTest extends TestCase
             deliveryStorage: $this->storage,
         );
 
-        $this->expectException(PublishException::class);
-        $this->expectExceptionMessage('Connection refused');
-
-        $publisher->publish($this->makeMessage(type: 'order.created'));
+        try {
+            $publisher->publish($this->makeMessage(type: 'order.created'));
+            Assert::fail('Expected PublishException');
+        } catch (PublishException $e) {
+            Assert::string($e->getMessage())->contains('Connection refused');
+        }
     }
 
-    #[Test]
     public function includesUnknownErrorInMessageWhenLastErrorIsNull(): void
     {
-        $dispatcher = $this->createStub(WebhookDispatcher::class);
-        $dispatcher->method('dispatch')->willReturnCallback(
-            fn(WebhookEvent $event, WebhookEndpoint $endpoint): WebhookDelivery
+        $dispatcher = (new FakeWebhookDispatcher())->whenDispatch(
+            static fn(WebhookEvent $event, WebhookEndpoint $endpoint): WebhookDelivery
                 => WebhookDelivery::create(event: $event, endpoint: $endpoint)
                     ->withStatus(WebhookDeliveryStatus::Failed),
         );
@@ -131,20 +128,18 @@ final class OutboxWebhookPublisherTest extends TestCase
 
         try {
             $publisher->publish($this->makeMessage(type: 'order.created'));
-            $this->fail('Expected PublishException');
+            Assert::fail('Expected PublishException');
         } catch (PublishException $e) {
-            $this->assertStringContainsString('unknown error', $e->getMessage());
+            Assert::string($e->getMessage())->contains('unknown error');
         }
     }
 
-    #[Test]
     public function includesActualLastErrorInMessageWhenSet(): void
     {
-        $dispatcher = $this->createStub(WebhookDispatcher::class);
-        $dispatcher->method('dispatch')->willReturnCallback(
-            fn(WebhookEvent $event, WebhookEndpoint $endpoint): WebhookDelivery
+        $dispatcher = (new FakeWebhookDispatcher())->whenDispatch(
+            static fn(WebhookEvent $event, WebhookEndpoint $endpoint): WebhookDelivery
                 => WebhookDelivery::create(event: $event, endpoint: $endpoint)
-                    ->withAttempt(new \DateTimeImmutable(), 'HTTP 503 Service Unavailable')
+                    ->withAttempt(new DateTimeImmutable(), 'HTTP 503 Service Unavailable')
                     ->withStatus(WebhookDeliveryStatus::Failed),
         );
 
@@ -157,18 +152,16 @@ final class OutboxWebhookPublisherTest extends TestCase
 
         try {
             $publisher->publish($this->makeMessage(type: 'order.created'));
-            $this->fail('Expected PublishException');
+            Assert::fail('Expected PublishException');
         } catch (PublishException $e) {
-            $this->assertStringContainsString('HTTP 503 Service Unavailable', $e->getMessage());
+            Assert::string($e->getMessage())->contains('HTTP 503 Service Unavailable');
         }
     }
 
-    #[Test]
     public function savesDeliveryBeforeThrowingOnFailedStatus(): void
     {
-        $dispatcher = $this->createStub(WebhookDispatcher::class);
-        $dispatcher->method('dispatch')->willReturnCallback(
-            fn(WebhookEvent $event, WebhookEndpoint $endpoint): WebhookDelivery
+        $dispatcher = (new FakeWebhookDispatcher())->whenDispatch(
+            static fn(WebhookEvent $event, WebhookEndpoint $endpoint): WebhookDelivery
                 => WebhookDelivery::create(event: $event, endpoint: $endpoint)
                     ->withStatus(WebhookDeliveryStatus::Failed),
         );
@@ -185,17 +178,15 @@ final class OutboxWebhookPublisherTest extends TestCase
         } catch (PublishException) {
         }
 
-        $this->assertCount(1, $this->storage);
+        Assert::count($this->storage, 1);
     }
 
-    #[Test]
     public function dispatchesToAllEndpointsAndCollectsFailures(): void
     {
         $ep2 = new WebhookEndpoint(url: 'https://b.example.com/hook', secret: 'secret-b');
 
-        $dispatcher = $this->createStub(WebhookDispatcher::class);
-        $dispatcher->method('dispatch')->willReturnCallback(
-            fn(WebhookEvent $event, WebhookEndpoint $endpoint): WebhookDelivery
+        $dispatcher = (new FakeWebhookDispatcher())->whenDispatch(
+            static fn(WebhookEvent $event, WebhookEndpoint $endpoint): WebhookDelivery
                 => WebhookDelivery::create(event: $event, endpoint: $endpoint)
                     ->withStatus(WebhookDeliveryStatus::Delivered),
         );
@@ -211,15 +202,13 @@ final class OutboxWebhookPublisherTest extends TestCase
 
         $publisher->publish($this->makeMessage(type: 'order.created'));
 
-        $this->assertCount(2, $this->storage);
+        Assert::count($this->storage, 2);
     }
 
-    #[Test]
     public function convertsMessageIdToEventId(): void
     {
         $capturedEvent = null;
-        $dispatcher = $this->createStub(WebhookDispatcher::class);
-        $dispatcher->method('dispatch')->willReturnCallback(
+        $dispatcher = (new FakeWebhookDispatcher())->whenDispatch(
             function (WebhookEvent $event, WebhookEndpoint $endpoint) use (&$capturedEvent): WebhookDelivery {
                 $capturedEvent = $event;
 
@@ -238,10 +227,10 @@ final class OutboxWebhookPublisherTest extends TestCase
         $message = $this->makeMessage(type: 'order.created');
         $publisher->publish($message);
 
-        $this->assertNotNull($capturedEvent);
-        $this->assertSame($message->getId(), $capturedEvent->getId());
-        $this->assertSame('order.created', $capturedEvent->getType());
-        $this->assertSame('{"key":"value"}', $capturedEvent->getPayload());
+        Assert::notNull($capturedEvent);
+        Assert::same($capturedEvent->getId(), $message->getId());
+        Assert::same($capturedEvent->getType(), 'order.created');
+        Assert::same($capturedEvent->getPayload(), '{"key":"value"}');
     }
 
     private function makeMessage(string $type): OutboxMessage
