@@ -8,6 +8,7 @@ use Testo\Application\Config\SuiteConfig;
 use Testo\Bench\BenchmarkPlugin;
 
 return new ApplicationConfig(
+    src: ['src'],
     suites: [
         new SuiteConfig(
             name: 'Unit',
