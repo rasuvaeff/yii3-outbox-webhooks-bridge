@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.3 — 2026-07-26
 
 - Document the all-or-nothing fan-out retry as a contract, not a table row. When
   one of several endpoints fails, the outbox retries the whole message and every
