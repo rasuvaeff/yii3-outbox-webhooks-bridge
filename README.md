@@ -82,11 +82,44 @@ $result = $processor->process(types: ['order.created', 'order.paid']);
 | No endpoints for type | Silent success (zero deliveries, message published) |
 | Multiple endpoints, one fails | All dispatched; `PublishException` thrown → all retried |
 
+### Retry is all-or-nothing across endpoints
+
+Fan-out has no partial state. If a type maps to five endpoints and the fifth
+fails, `publish()` throws — and the outbox retries **the message**, not the one
+endpoint. The next attempt dispatches to all five again, so the four that already
+succeeded receive the event a second time.
+
+This is deliberate: the bridge keeps no per-endpoint delivery cursor, and adding
+one would duplicate state that `WebhookDeliveryStorage` already records. But it
+has consequences you must design for:
+
+| Consequence | What to do |
+|---|---|
+| Healthy endpoints get duplicates whenever any sibling fails | Receivers **must** deduplicate on the event id — see below. This is a requirement, not a recommendation |
+| `WebhookDeliveryStorage` gets a second row for an endpoint that already succeeded | Do not put a unique constraint on `(event_id, endpoint_url)`. It will raise a duplicate-key error on a perfectly normal retry, and that error surfaces as a delivery failure rather than as the schema problem it is |
+| One permanently broken endpoint keeps the whole message retrying | The message reaches `Failed` after `maxAttempts` and stops — but every attempt until then re-delivers to the healthy endpoints. Keep `maxAttempts` low, or give a flaky endpoint its own message type so its failures cannot drag siblings along |
+
 ### Event id dedup
 
-The outbox message id is reused as the `WebhookEvent` id. On retry, the same id
-is sent again. Receivers should use the `X-Webhook-Id` header (set by
-`HmacSha256Signer`) for idempotency.
+The outbox message id is reused as the `WebhookEvent` id, unchanged. On retry —
+including the all-or-nothing retry above — the same id is sent again, which is
+what makes receiver-side deduplication possible at all.
+
+Receivers must key idempotency on that id. It travels in the `X-Webhook-Id`
+header when your dispatcher signs with `HmacSha256Signer` from `yii3-webhooks`;
+with a different dispatcher, make sure the id is transmitted somehow, or
+receivers have nothing to deduplicate on.
+
+Two further contract details worth knowing:
+
+- **`occurredAt` is the outbox message's `createdAt`**, not the moment of the
+  delivery attempt. A receiver measuring an SLA from `occurredAt` measures from
+  when the event happened, which is correct — but on a backlogged outbox a
+  perfectly healthy delivery can look overdue. Use the transport timestamp if
+  you want delivery latency.
+- **Retry lives in the outbox, not in `yii3-webhooks`.** `WebhookRetryPolicy`
+  from that package is not used here; `Processor`'s `RetryPolicy` is the only
+  retry loop. Configuring both means two schedules for the same event.
 
 ### Custom endpoint provider
 
