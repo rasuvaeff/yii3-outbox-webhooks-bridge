@@ -27,6 +27,10 @@ use Rasuvaeff\Yii3Webhooks\WebhookEvent;
  * When no endpoints are configured for a message type the method succeeds
  * silently (the message is treated as published with zero deliveries).
  *
+ * Endpoint URLs are put into the {@see PublishException} message through
+ * {@see UrlMasker}: the failure message ends up in the worker log, and an
+ * endpoint may carry a credential in its query string.
+ *
  * @api
  */
 final readonly class OutboxWebhookPublisher implements PublisherInterface
@@ -63,12 +67,12 @@ final readonly class OutboxWebhookPublisher implements PublisherInterface
                 if ($delivery->getStatus() === WebhookDeliveryStatus::Failed) {
                     $failures[] = sprintf(
                         '%s: %s',
-                        $endpoint->getUrl(),
+                        UrlMasker::mask($endpoint->getUrl()),
                         $delivery->getLastError() ?? 'unknown error',
                     );
                 }
             } catch (\Throwable $e) {
-                $failures[] = sprintf('%s: %s', $endpoint->getUrl(), $e->getMessage());
+                $failures[] = sprintf('%s: %s', UrlMasker::mask($endpoint->getUrl()), $e->getMessage());
             }
         }
 

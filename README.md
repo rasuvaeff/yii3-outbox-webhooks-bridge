@@ -148,6 +148,14 @@ final readonly class DbWebhookEndpointProvider implements WebhookEndpointProvide
   signer to authenticate outbound requests.
 - Receivers should validate the signature via `WebhookVerifier` and use
   `ReplayGuard` against nonce replay.
+- Endpoint URLs are masked before they enter a `PublishException` message. The
+  outbox `Processor` logs that message verbatim, so an endpoint carrying a
+  credential in its query string (`?access_token=…`) or in its userinfo
+  component (`https://user:pass@…`) would otherwise end up in every log sink the
+  application has. Scheme, host, port, path and query keys survive — the log
+  line stays diagnosable; query values, the password and the fragment are
+  replaced with `***`. Prefer sending credentials as headers configured on the
+  `WebhookDispatcher` all the same: masking is a safety net, not a licence.
 
 ## Examples
 

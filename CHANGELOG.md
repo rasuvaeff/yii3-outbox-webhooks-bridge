@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Mask endpoint URLs in `PublishException` messages. The message goes into the
+  outbox `Processor` log verbatim, so an endpoint carrying a credential in its
+  query string or userinfo component leaked that credential into every log sink
+  the application has. Scheme, host, port, path and query keys survive; query
+  values, the password and the fragment are replaced with `***`
+  ([#13](https://github.com/rasuvaeff/yii3-outbox-webhooks-bridge/issues/13)).
+
+### Added
+
+- `rasuvaeff/property-testing-testo` covers the masker with properties: no
+  generated secret survives masking in any of its three placements, the host
+  always does, masking is idempotent, and it never throws for an arbitrary
+  string.
+
+### Changed
+
+- Development tooling: `rasuvaeff/rector-named-literals` is part of the rector
+  set, the mutation job gets its own narrow change filter, and the property
+  regression corpus is cached between CI runs.
+- Raise the Infection gate from `minMsi` 88 to 95. The suite now scores 96.15%,
+  and the two surviving mutants are equivalent (removing a `return` whose
+  fallthrough produces the same result), so 95 is the honest ceiling minus
+  headroom.
+
 ## 1.0.3 — 2026-07-26
 
 - Document the all-or-nothing fan-out retry as a contract, not a table row. When

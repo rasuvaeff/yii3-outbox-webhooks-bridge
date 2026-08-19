@@ -12,7 +12,7 @@
     // 1 equivalent mutant: OutboxWebhookPublisher::publish() early `return` when
     // `$endpoints === []` — removing it lets foreach iterate over an empty array,
     // producing identical behaviour (no dispatches, no exception).
-    "minMsi": 88,
+    "minMsi": 95,
     "mutators": {
         "@default": true
     }
