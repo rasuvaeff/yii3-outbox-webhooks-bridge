@@ -16,6 +16,8 @@ composer require rasuvaeff/yii3-outbox-webhooks-bridge
 - Dispatcher failure or `Failed` delivery status → `PublishException` → outbox retries.
 - No endpoints for a type → silent success (zero deliveries).
 - Fanout is all-or-nothing: any failure throws; receivers must be idempotent on event id.
+- Endpoint URLs are masked in `PublishException` messages (query values, userinfo password and fragment become `***`); the outbox `Processor` logs those messages verbatim.
+- The upstream error appended to that message (`getLastError()`, or what the dispatcher threw) is scrubbed of every secret the endpoint URL carries, in both percent-encoded and decoded spellings — a PSR-18 client puts the full request URI into it, so masking the endpoint alone would leak the credential anyway.
 - No DI config provided — app wires `OutboxWebhookPublisher` to `Processor`.
 
 ## API
