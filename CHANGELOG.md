@@ -10,13 +10,23 @@
   the application has. Scheme, host, port, path and query keys survive; query
   values, the password and the fragment are replaced with `***`
   ([#13](https://github.com/rasuvaeff/yii3-outbox-webhooks-bridge/issues/13)).
+- Scrub the endpoint's secrets out of the upstream error text as well. Only the
+  URL this package interpolates was masked; `WebhookDelivery::getLastError()`
+  and the message of whatever the dispatcher threw were appended verbatim, and a
+  PSR-18 client routinely puts the whole request URI into them
+  (`cURL error 7: ... for https://host/e?access_token=…`). The credential
+  therefore still reached the log in the most common configuration, and the
+  tests missed it because both credential cases used upstream errors carrying no
+  URL at all (`HTTP 500`, `Connection refused`)
+  ([#13](https://github.com/rasuvaeff/yii3-outbox-webhooks-bridge/issues/13)).
 
 ### Added
 
 - `rasuvaeff/property-testing-testo` covers the masker with properties: no
   generated secret survives masking in any of its three placements, the host
   always does, masking is idempotent, and it never throws for an arbitrary
-  string.
+  string. `scrub()` gets the same treatment: a generated secret never survives,
+  wherever the upstream text quoted it, and scrubbing is idempotent.
 
 ### Changed
 

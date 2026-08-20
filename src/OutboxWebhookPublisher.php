@@ -65,14 +65,13 @@ final readonly class OutboxWebhookPublisher implements PublisherInterface
                 $this->deliveryStorage->save(delivery: $delivery);
 
                 if ($delivery->getStatus() === WebhookDeliveryStatus::Failed) {
-                    $failures[] = sprintf(
-                        '%s: %s',
-                        UrlMasker::mask($endpoint->getUrl()),
+                    $failures[] = self::describeFailure(
+                        $endpoint->getUrl(),
                         $delivery->getLastError() ?? 'unknown error',
                     );
                 }
             } catch (\Throwable $e) {
-                $failures[] = sprintf('%s: %s', UrlMasker::mask($endpoint->getUrl()), $e->getMessage());
+                $failures[] = self::describeFailure($endpoint->getUrl(), $e->getMessage());
             }
         }
 
@@ -82,5 +81,17 @@ final readonly class OutboxWebhookPublisher implements PublisherInterface
                 outboxMessage: $message,
             );
         }
+    }
+
+    /**
+     * The upstream half of the line is text this class did not write: a
+     * delivery's `getLastError()`, or the message of whatever the dispatcher
+     * threw. A PSR-18 client puts the whole request URI into that message, so
+     * it is scrubbed rather than trusted — masking only the URL interpolated
+     * here would leave the credential in the log anyway.
+     */
+    private static function describeFailure(string $url, string $error): string
+    {
+        return sprintf('%s: %s', UrlMasker::mask($url), UrlMasker::scrub($error, $url));
     }
 }

@@ -156,6 +156,16 @@ final readonly class DbWebhookEndpointProvider implements WebhookEndpointProvide
   line stays diagnosable; query values, the password and the fragment are
   replaced with `***`. Prefer sending credentials as headers configured on the
   `WebhookDispatcher` all the same: masking is a safety net, not a licence.
+- The upstream half of that message is scrubbed too. A failure line is
+  `<masked endpoint>: <upstream error>`, and the upstream part is text this
+  package did not write — a delivery's `getLastError()`, or the message of
+  whatever the dispatcher threw. A PSR-18 client routinely puts the whole
+  request URI into it (`cURL error 7: Failed to connect ... for
+  https://host/e?access_token=…`), so masking only the endpoint would put the
+  credential straight back into the log. Every secret the endpoint URL carries
+  is removed from that text wherever it appears, percent-encoded or not. A short
+  query value (`?page=1`) makes this over-redact the text around it, which is
+  the cheaper of the two mistakes.
 
 ## Examples
 
