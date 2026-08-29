@@ -265,7 +265,10 @@ final class OutboxWebhookPublisherTest
 
     public function masksTheEndpointUrlWhenTheDispatcherThrows(): void
     {
-        $endpoint = new WebhookEndpoint(url: 'https://svc:p4ssw0rd@hooks.example.com/e', secret: 'secret');
+        // A credential in the query string: webhooks 2.0 rejects userinfo
+        // credentials at construction, so a 2.x application can only carry
+        // them here. The userinfo masking itself is covered by UrlMaskerTest.
+        $endpoint = new WebhookEndpoint(url: 'https://hooks.example.com/e?access_token=s3cret-token', secret: 'secret');
 
         $dispatcher = (new FakeWebhookDispatcher())->whenDispatch(
             static fn(): never => throw new \RuntimeException('Connection refused'),
@@ -281,8 +284,8 @@ final class OutboxWebhookPublisherTest
             $publisher->publish($this->makeMessage(type: 'order.created'));
             Assert::fail('Expected PublishException');
         } catch (PublishException $e) {
-            Assert::string($e->getMessage())->contains('https://svc:***@hooks.example.com/e');
-            Assert::false(str_contains($e->getMessage(), 'p4ssw0rd'));
+            Assert::string($e->getMessage())->contains('https://hooks.example.com/e?access_token=***');
+            Assert::false(str_contains($e->getMessage(), 's3cret-token'));
         }
     }
 
@@ -320,7 +323,7 @@ final class OutboxWebhookPublisherTest
 
     public function scrubsTheCredentialOutOfTheThrownExceptionMessage(): void
     {
-        $url = 'https://svc:p4ssw0rd@hooks.example.com/e';
+        $url = 'https://hooks.example.com/e?access_token=s3cret-token';
         $endpoint = new WebhookEndpoint(url: $url, secret: 'secret');
 
         $dispatcher = (new FakeWebhookDispatcher())->whenDispatch(
@@ -337,7 +340,7 @@ final class OutboxWebhookPublisherTest
             $publisher->publish($this->makeMessage(type: 'order.created'));
             Assert::fail('Expected PublishException');
         } catch (PublishException $e) {
-            Assert::false(str_contains($e->getMessage(), 'p4ssw0rd'));
+            Assert::false(str_contains($e->getMessage(), 's3cret-token'));
             Assert::string($e->getMessage())
                 ->contains('cURL error 6: Could not resolve host')
                 ->contains('hooks.example.com');

@@ -19,7 +19,12 @@
 
 - PHP 8.3–8.5
 - `rasuvaeff/yii3-outbox` ^1.0
-- `rasuvaeff/yii3-webhooks` ^1.0
+- `rasuvaeff/yii3-webhooks` ^1.0 || ^2.0 — предпочитайте 2.x: там
+  length-prefixed формат подписи и SSRF-защищённый `WebhookEndpoint`
+  (креды в URL и приватные/loopback-хосты отвергаются, кроме случая
+  `allowPrivateNetwork: true`). Bridge потребляет один и тот же API на обеих
+  линиях; 2.x лишь отвергает URL, которые раньше принимались — на конструкции,
+  в вашем собственном конфигурационном коде.
 - Реализация `WebhookDispatcher` (например, PSR-18-адаптер в вашем приложении)
 - Реализация `WebhookDeliveryStorage` (например, `yii3-webhooks-db`)
 

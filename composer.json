@@ -24,7 +24,7 @@
     "require": {
         "php": "8.3 - 8.5",
         "rasuvaeff/yii3-outbox": "^1.0",
-        "rasuvaeff/yii3-webhooks": "^1.0"
+        "rasuvaeff/yii3-webhooks": "^1.0 || ^2.0"
     },
     "require-dev": {
         "ergebnis/composer-normalize": "^2.51",

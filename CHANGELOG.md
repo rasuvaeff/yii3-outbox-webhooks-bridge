@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.5 — 2026-08-29
+
+### Fixed
+
+- Widen `rasuvaeff/yii3-webhooks` to `^1.0 || ^2.0`. The constraint was `^1.0`,
+  which silently locked consumers out of the webhooks core's 2.0.0 security
+  release (length-prefixed signature format, SSRF-hardened `WebhookEndpoint`)
+  as long as they kept the bridge installed. The bridge consumes the same API
+  on both lines — every interface and value object it touches
+  (`WebhookDispatcher`, `WebhookDeliveryStorage`, `WebhookEvent`,
+  `WebhookEndpoint(url:, secret:)`, `WebhookDelivery::create()`) is
+  shape-identical across 1.x and 2.0; the test suite runs against both
+  (the `Prefer lowest` CI job pins 1.x) (#16).
+
 ## 1.0.4 — 2026-08-20
 
 ### Fixed
