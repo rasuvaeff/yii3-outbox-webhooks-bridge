@@ -16,7 +16,12 @@ Bridges `yii3-outbox` and `yii3-webhooks` for durable at-least-once webhook deli
 
 - PHP 8.3–8.5
 - `rasuvaeff/yii3-outbox` ^1.0
-- `rasuvaeff/yii3-webhooks` ^1.0
+- `rasuvaeff/yii3-webhooks` ^1.0 || ^2.0 — prefer 2.x: it carries the
+  length-prefixed signature format and the SSRF-hardened `WebhookEndpoint`
+  (credentials in the URL, private/loopback hosts rejected unless
+  `allowPrivateNetwork: true`). The bridge consumes the same API on both lines;
+  2.x only rejects endpoint URLs it used to accept, at construction time in
+  your own configuration code.
 - A `WebhookDispatcher` implementation (e.g. a PSR-18-based adapter in your app)
 - A `WebhookDeliveryStorage` implementation (e.g. `yii3-webhooks-db`)
 
