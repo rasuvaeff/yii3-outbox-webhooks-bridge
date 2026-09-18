@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.1.0 — 2026-09-18
+
+### Added
+
+- `ConfigWebhookEndpointProvider::configuredTypes()`: the message types that
+  have at least one endpoint — what a `Processor` over a shared storage is
+  scoped to (`new Processor(..., types: $endpointProvider->configuredTypes())`,
+  `rasuvaeff/yii3-outbox` 1.7). The README's "Sharing an outbox with other
+  consumers" section now leads with that recipe; the dedicated storage and the
+  guarding publisher remain as the second and third line of defence.
+
+### Changed
+
+- Requires `rasuvaeff/yii3-outbox` `^1.7`.
+
 ## 1.0.6 — 2026-09-18
 
 ### Fixed

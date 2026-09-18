@@ -51,4 +51,25 @@ final class ConfigWebhookEndpointProviderTest
         Assert::same($provider->getEndpointsForType('order.paid'), [$ep2]);
         Assert::same($provider->getEndpointsForType('order.cancelled'), []);
     }
+
+    public function configuredTypesListsTheTypesWithAtLeastOneEndpoint(): void
+    {
+        $provider = new ConfigWebhookEndpointProvider(map: [
+            'order.created' => [new WebhookEndpoint(url: 'https://a.example.com/hooks', secret: 'secret-a')],
+            'order.paid' => [
+                new WebhookEndpoint(url: 'https://a.example.com/hooks', secret: 'secret-a'),
+                new WebhookEndpoint(url: 'https://b.example.com/hooks', secret: 'secret-b'),
+            ],
+            // configured but empty: the publisher would acknowledge these
+            // with zero deliveries, so a scoped Processor must not claim them
+            'order.cancelled' => [],
+        ]);
+
+        Assert::same($provider->configuredTypes(), ['order.created', 'order.paid']);
+    }
+
+    public function configuredTypesOfAnEmptyMapIsEmpty(): void
+    {
+        Assert::same((new ConfigWebhookEndpointProvider())->configuredTypes(), []);
+    }
 }

@@ -27,4 +27,24 @@ final readonly class ConfigWebhookEndpointProvider implements WebhookEndpointPro
     {
         return $this->map[$type] ?? [];
     }
+
+    /**
+     * The message types that have at least one endpoint — what a `Processor`
+     * over a shared storage should be scoped to, so it never claims a message
+     * this publisher would acknowledge with zero deliveries.
+     *
+     * @return list<string>
+     */
+    public function configuredTypes(): array
+    {
+        $types = [];
+
+        foreach ($this->map as $type => $endpoints) {
+            if ($endpoints !== []) {
+                $types[] = $type;
+            }
+        }
+
+        return $types;
+    }
 }

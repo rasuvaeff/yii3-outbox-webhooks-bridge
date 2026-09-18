@@ -14,7 +14,8 @@ composer require rasuvaeff/yii3-outbox-webhooks-bridge
 - Each `OutboxMessage` is converted to `WebhookEvent` (id/type/payload/createdAt mapped 1:1).
 - Endpoints are resolved per message type via `WebhookEndpointProvider`.
 - Dispatcher failure or `Failed` delivery status → `PublishException` → outbox retries.
-- No endpoints for a type → silent success (zero deliveries). `Processor` claims every type, so on a storage shared with other consumers this acknowledges their messages too: use a dedicated storage or wrap the publisher in one that throws `PublishException` for types it does not own.
+- No endpoints for a type → silent success (zero deliveries). An unscoped `Processor` claims every type, so on a storage shared with other consumers this acknowledges their messages too: build it with `types: $endpointProvider->configuredTypes()` (core ^1.7); a dedicated storage or a guarding publisher that throws `PublishException` for foreign types are the fallbacks.
+- `ConfigWebhookEndpointProvider::configuredTypes(): list<string>` — the types with at least one endpoint; empty lists are excluded.
 - Fanout is all-or-nothing: any failure throws; receivers must be idempotent on event id.
 - Endpoint URLs are masked in `PublishException` messages (query values, userinfo password and fragment become `***`); the outbox `Processor` logs those messages verbatim.
 - The upstream error appended to that message (`getLastError()`, or what the dispatcher threw) is scrubbed of every secret the endpoint URL carries, in both percent-encoded and decoded spellings — a PSR-18 client puts the full request URI into it, so masking the endpoint alone would leak the credential anyway.
@@ -31,6 +32,7 @@ use Rasuvaeff\Yii3Webhooks\WebhookEndpoint;
 $endpointProvider = new ConfigWebhookEndpointProvider(map: [
     'order.created' => [new WebhookEndpoint(url: 'https://example.com/hook', secret: 'secret')],
 ]);
+$endpointProvider->configuredTypes(); // ['order.created'] — pass as Processor(types: ...)
 
 // Publisher (inject your WebhookDispatcher + WebhookDeliveryStorage)
 $publisher = new OutboxWebhookPublisher(
