@@ -66,15 +66,68 @@ $publisher = new OutboxWebhookPublisher(
 
 ```php
 use Rasuvaeff\Yii3Outbox\Processor;
+use Rasuvaeff\Yii3Outbox\RetryPolicy;
 
 $processor = new Processor(
     storage: $outboxStorage,
     publisher: $publisher,
+    retryPolicy: new RetryPolicy(maxAttempts: 5, delaySeconds: 60),
     clock: $clock,
 );
 
 // In a background worker or console command:
-$result = $processor->process(types: ['order.created', 'order.paid']);
+$result = $processor->process();
+```
+
+`process()` takes no arguments: the processor claims **every** pending
+message in the storage, whatever its type. See the next section before
+pointing it at an outbox other consumers read from.
+
+### Sharing an outbox with other consumers
+
+`OutboxWebhookPublisher` treats a message type with no configured endpoints
+as delivered: `publish()` returns, the `Processor` calls `markPublished()`,
+and the message is gone. That is harmless while webhooks are the only
+consumer. It is data loss the moment another consumer claims from the same
+storage by type — a `ClickHouseOutboxExporter` from
+`rasuvaeff/yii3-outbox-clickhouse`, for instance, claims only the types it
+routes, but a `Processor` claims everything, including those, and the
+publisher acknowledges them with zero deliveries. Nothing logs it and no alert
+fires.
+
+Until the outbox core offers a type scope on `Processor`
+([yii3-outbox#26](https://github.com/rasuvaeff/yii3-outbox/issues/26)), keep
+the publisher away from types it does not own:
+
+- **A dedicated storage.** Give webhook-bound messages their own table
+  (`yii3-outbox-db` takes the name through `OutboxTableName`) and run this
+  `Processor` on that storage only.
+- **A guarding publisher.** Wrap `OutboxWebhookPublisher` in a
+  `PublisherInterface` that throws `PublishException` for any type outside an
+  allow-list. Such a message is retried and eventually marked `Failed` rather
+  than silently acknowledged — visible, and recoverable.
+
+```php
+final readonly class OwnedTypesPublisher implements PublisherInterface
+{
+    /** @param list<string> $types */
+    public function __construct(
+        private PublisherInterface $inner,
+        private array $types,
+    ) {}
+
+    public function publish(OutboxMessage $message): void
+    {
+        if (!in_array($message->getType(), $this->types, true)) {
+            throw new PublishException(
+                message: sprintf('Message type "%s" is not owned by the webhook publisher', $message->getType()),
+                outboxMessage: $message,
+            );
+        }
+
+        $this->inner->publish($message);
+    }
+}
 ```
 
 ### Behaviour
@@ -84,7 +137,7 @@ $result = $processor->process(types: ['order.created', 'order.paid']);
 | Endpoint returns `Delivered` | Delivery saved; message marked published |
 | Endpoint returns `Failed` | Delivery saved; `PublishException` thrown → outbox retries |
 | Dispatcher throws | `PublishException` thrown → outbox retries |
-| No endpoints for type | Silent success (zero deliveries, message published) |
+| No endpoints for type | Silent success (zero deliveries, message published) — see [Sharing an outbox](#sharing-an-outbox-with-other-consumers) |
 | Multiple endpoints, one fails | All dispatched; `PublishException` thrown → all retried |
 
 ### Retry is all-or-nothing across endpoints
