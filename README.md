@@ -73,15 +73,17 @@ $processor = new Processor(
     publisher: $publisher,
     retryPolicy: new RetryPolicy(maxAttempts: 5, delaySeconds: 60),
     clock: $clock,
+    types: $endpointProvider->configuredTypes(),   // only what has endpoints
 );
 
 // In a background worker or console command:
 $result = $processor->process();
 ```
 
-`process()` takes no arguments: the processor claims **every** pending
-message in the storage, whatever its type. See the next section before
-pointing it at an outbox other consumers read from.
+`process()` takes no arguments; what the processor claims is decided by
+`types:` at construction. Leave it out and it claims **every** pending
+message in the storage, whatever its type — see the next section before
+doing that on an outbox other consumers read from.
 
 ### Sharing an outbox with other consumers
 
@@ -91,13 +93,28 @@ and the message is gone. That is harmless while webhooks are the only
 consumer. It is data loss the moment another consumer claims from the same
 storage by type — a `ClickHouseOutboxExporter` from
 `rasuvaeff/yii3-outbox-clickhouse`, for instance, claims only the types it
-routes, but a `Processor` claims everything, including those, and the
-publisher acknowledges them with zero deliveries. Nothing logs it and no alert
-fires.
+routes, but an unscoped `Processor` claims everything, including those, and
+the publisher acknowledges them with zero deliveries. Nothing logs it and no
+alert fires.
 
-Until the outbox core offers a type scope on `Processor`
-([yii3-outbox#26](https://github.com/rasuvaeff/yii3-outbox/issues/26)), keep
-the publisher away from types it does not own:
+Scope the processor to the types the publisher owns. With
+`ConfigWebhookEndpointProvider` that is one call — `configuredTypes()` lists
+every type that has at least one endpoint — and with a provider of your own
+it is the list you would give the provider anyway:
+
+```php
+$processor = new Processor(
+    storage: $outboxStorage,
+    publisher: $publisher,
+    retryPolicy: $policy,
+    clock: $clock,
+    types: $endpointProvider->configuredTypes(),
+);
+```
+
+The scope reaches the storage's `claim()`, so a foreign message is never even
+seen. Two further lines of defence, for when the scope cannot be trusted to
+stay in step with the endpoint map:
 
 - **A dedicated storage.** Give webhook-bound messages their own table
   (`yii3-outbox-db` takes the name through `OutboxTableName`) and run this

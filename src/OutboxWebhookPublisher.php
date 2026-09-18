@@ -65,13 +65,10 @@ final readonly class OutboxWebhookPublisher implements PublisherInterface
                 $this->deliveryStorage->save(delivery: $delivery);
 
                 if ($delivery->getStatus() === WebhookDeliveryStatus::Failed) {
-                    $failures[] = self::describeFailure(
-                        $endpoint->getUrl(),
-                        $delivery->getLastError() ?? 'unknown error',
-                    );
+                    $failures[] = $this->describeFailure($endpoint->getUrl(), $delivery->getLastError() ?? 'unknown error');
                 }
             } catch (\Throwable $e) {
-                $failures[] = self::describeFailure($endpoint->getUrl(), $e->getMessage());
+                $failures[] = $this->describeFailure($endpoint->getUrl(), $e->getMessage());
             }
         }
 
@@ -90,7 +87,7 @@ final readonly class OutboxWebhookPublisher implements PublisherInterface
      * it is scrubbed rather than trusted — masking only the URL interpolated
      * here would leave the credential in the log anyway.
      */
-    private static function describeFailure(string $url, string $error): string
+    private function describeFailure(string $url, string $error): string
     {
         return sprintf('%s: %s', UrlMasker::mask($url), UrlMasker::scrub($error, $url));
     }
