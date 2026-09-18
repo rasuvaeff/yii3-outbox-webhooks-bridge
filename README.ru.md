@@ -69,15 +69,68 @@ $publisher = new OutboxWebhookPublisher(
 
 ```php
 use Rasuvaeff\Yii3Outbox\Processor;
+use Rasuvaeff\Yii3Outbox\RetryPolicy;
 
 $processor = new Processor(
     storage: $outboxStorage,
     publisher: $publisher,
+    retryPolicy: new RetryPolicy(maxAttempts: 5, delaySeconds: 60),
     clock: $clock,
 );
 
-// In a background worker or console command:
-$result = $processor->process(types: ['order.created', 'order.paid']);
+// В фоновом воркере или консольной команде:
+$result = $processor->process();
+```
+
+`process()` не принимает аргументов: процессор забирает **все** ожидающие
+сообщения из хранилища независимо от типа. Прочитайте следующий раздел,
+прежде чем направлять его на outbox, из которого читают другие потребители.
+
+### Общий outbox с другими потребителями
+
+`OutboxWebhookPublisher` считает тип без настроенных эндпоинтов доставленным:
+`publish()` возвращается, `Processor` вызывает `markPublished()`, и сообщения
+больше нет. Пока вебхуки — единственный потребитель, это безобидно. Но это
+потеря данных, как только из того же хранилища по типу забирает другой
+потребитель — например, `ClickHouseOutboxExporter` из
+`rasuvaeff/yii3-outbox-clickhouse` забирает только те типы, которые
+маршрутизирует, а `Processor` забирает всё, включая их, и паблишер
+подтверждает их с нулём доставок. Ничего не логируется, ни один алерт не
+срабатывает.
+
+Пока в ядре outbox нет скоупа типов у `Processor`
+([yii3-outbox#26](https://github.com/rasuvaeff/yii3-outbox/issues/26)), не
+подпускайте паблишер к чужим типам:
+
+- **Отдельное хранилище.** Дайте вебхук-сообщениям свою таблицу
+  (`yii3-outbox-db` принимает имя через `OutboxTableName`) и запускайте этот
+  `Processor` только на ней.
+- **Паблишер-охранник.** Оберните `OutboxWebhookPublisher` в
+  `PublisherInterface`, который бросает `PublishException` для любого типа вне
+  allow-list. Такое сообщение уйдёт в retry и в итоге в `Failed`, а не будет
+  молча подтверждено — видимо и восстановимо.
+
+```php
+final readonly class OwnedTypesPublisher implements PublisherInterface
+{
+    /** @param list<string> $types */
+    public function __construct(
+        private PublisherInterface $inner,
+        private array $types,
+    ) {}
+
+    public function publish(OutboxMessage $message): void
+    {
+        if (!in_array($message->getType(), $this->types, true)) {
+            throw new PublishException(
+                message: sprintf('Message type "%s" is not owned by the webhook publisher', $message->getType()),
+                outboxMessage: $message,
+            );
+        }
+
+        $this->inner->publish($message);
+    }
+}
 ```
 
 ### Поведение
@@ -87,7 +140,7 @@ $result = $processor->process(types: ['order.created', 'order.paid']);
 | Эндпоинт возвращает `Delivered` | Доставка сохранена; сообщение помечено как опубликованное |
 | Эндпоинт возвращает `Failed` | Доставка сохранена; бросается `PublishException` → outbox делает retry |
 | Dispatcher бросает исключение | Бросается `PublishException` → outbox делает retry |
-| Для типа нет эндпоинтов | Тихий успех (ноль доставок, сообщение опубликовано) |
+| Для типа нет эндпоинтов | Тихий успех (ноль доставок, сообщение опубликовано) — см. [Общий outbox](#общий-outbox-с-другими-потребителями) |
 | Несколько эндпоинтов, один упал | Все получили отправку; бросается `PublishException` → retry по всем |
 
 ### Retry — всё-или-ничего по эндпоинтам

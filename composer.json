@@ -61,6 +61,11 @@
         },
         "sort-packages": true
     },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "1.x-dev"
+        }
+    },
     "scripts": {
         "bc-check": "roave-backward-compatibility-check",
         "bench": "testo --suite=Benchmarks -vv",

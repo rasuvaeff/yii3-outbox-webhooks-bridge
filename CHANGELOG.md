@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.0.6 — 2026-09-18
+
+### Fixed
+
+- README showed `$processor->process(types: [...])`, an argument
+  `Rasuvaeff\Yii3Outbox\Processor::process()` does not take, and omitted the
+  required `retryPolicy`. The example now compiles, and a new section
+  "Sharing an outbox with other consumers" states what the removed argument
+  was hiding: `Processor` claims every type, and `OutboxWebhookPublisher`
+  acknowledges a message with no configured endpoints as published — on a
+  shared outbox that silently drops messages meant for another consumer.
+  The section shows the two ways to keep the publisher away from types it
+  does not own (#18).
+- `composer.json` declares `extra.branch-alias` (`dev-master` → `1.x-dev`)
+  so the family's config-merge harness can resolve the package from a path
+  repository.
+
 ## 1.0.5 — 2026-08-29
 
 ### Fixed

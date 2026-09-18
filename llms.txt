@@ -14,7 +14,7 @@ composer require rasuvaeff/yii3-outbox-webhooks-bridge
 - Each `OutboxMessage` is converted to `WebhookEvent` (id/type/payload/createdAt mapped 1:1).
 - Endpoints are resolved per message type via `WebhookEndpointProvider`.
 - Dispatcher failure or `Failed` delivery status → `PublishException` → outbox retries.
-- No endpoints for a type → silent success (zero deliveries).
+- No endpoints for a type → silent success (zero deliveries). `Processor` claims every type, so on a storage shared with other consumers this acknowledges their messages too: use a dedicated storage or wrap the publisher in one that throws `PublishException` for types it does not own.
 - Fanout is all-or-nothing: any failure throws; receivers must be idempotent on event id.
 - Endpoint URLs are masked in `PublishException` messages (query values, userinfo password and fragment become `***`); the outbox `Processor` logs those messages verbatim.
 - The upstream error appended to that message (`getLastError()`, or what the dispatcher threw) is scrubbed of every secret the endpoint URL carries, in both percent-encoded and decoded spellings — a PSR-18 client puts the full request URI into it, so masking the endpoint alone would leak the credential anyway.
