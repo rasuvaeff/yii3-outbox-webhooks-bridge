@@ -245,6 +245,28 @@ final readonly class DbWebhookEndpointProvider implements WebhookEndpointProvide
   значение query (`?page=1`) заставит вычистить и лишнее вокруг: из двух ошибок
   эта дешевле.
 
+### Показ строк доставок: `UrlMasker`
+
+`webhook_deliveries` хранит `endpoint_url` и `last_error` — оба несут секреты
+эндпоинта, и всему, что их рендерит (операторская страница, админка, API), нужно
+то же самое затирание, которое мост применяет к своим логам. `UrlMasker` —
+публичный API ровно для этого; используйте его вместо локальной копии:
+
+```php
+use Rasuvaeff\Yii3OutboxWebhooksBridge\UrlMasker;
+
+UrlMasker::mask('https://user:pass@host/e?access_token=secret&page=2#frag');
+// 'https://user:***@host/e?access_token=***&page=***#***'
+
+UrlMasker::scrub($delivery->lastError, $delivery->endpointUrl);
+// каждый секрет URL удаляется из текста ошибки, в percent-encoded виде и без,
+// а сам URL появляется в замаскированном виде
+```
+
+Оба метода — чистые статические функции; маскирование сохраняет схему, хост,
+порт, путь и ключи query (вывод остаётся диагностируемым) и заменяет пароль
+userinfo, значения query и фрагмент на `***`.
+
 ## Примеры
 
 См. [`examples/`](examples/) — запускаемые скрипты.
