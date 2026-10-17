@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.0 — 2026-10-17
 
 - `UrlMasker` is public API: `@api` instead of `@internal` (#23). Applications
   that render `webhook_deliveries` rows — `endpoint_url` and `last_error` carry
