@@ -5,11 +5,17 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3OutboxWebhooksBridge;
 
 /**
- * Removes credentials from an endpoint URL before it is put into an exception
- * message. Failure messages travel into {@see \Rasuvaeff\Yii3Outbox\Processor}
- * logs verbatim, so a token carried in the query string or in the userinfo
- * component would otherwise be persisted by every log shipper the application
- * has.
+ * Removes credentials from an endpoint URL before it is shown anywhere that
+ * persists text. Inside the bridge that is the exception message: failure
+ * messages travel into {@see \Rasuvaeff\Yii3Outbox\Processor} logs verbatim,
+ * so a token carried in the query string or in the userinfo component would
+ * otherwise be persisted by every log shipper the application has.
+ *
+ * Outside the bridge it is the same leak in one more place: `webhook_deliveries`
+ * carries `endpoint_url` and `last_error`, and anything that renders those rows
+ * — an operator page, an admin view, an API — needs exactly this redaction
+ * rather than a second implementation that drifts (percent-decoded variants,
+ * longest-first replacement, fragment handling).
  *
  * Scheme, host, port and path survive — the message stays diagnosable. Query
  * values, the userinfo password and the fragment are replaced with a fixed
@@ -19,7 +25,7 @@ namespace Rasuvaeff\Yii3OutboxWebhooksBridge;
  * {@see self::scrub()} covers the other half of the same leak: text that came
  * from somewhere else and happens to carry the endpoint's secrets.
  *
- * @internal
+ * @api
  */
 final readonly class UrlMasker
 {

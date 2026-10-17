@@ -19,6 +19,9 @@ composer require rasuvaeff/yii3-outbox-webhooks-bridge
 - Fanout is all-or-nothing: any failure throws; receivers must be idempotent on event id.
 - Endpoint URLs are masked in `PublishException` messages (query values, userinfo password and fragment become `***`); the outbox `Processor` logs those messages verbatim.
 - The upstream error appended to that message (`getLastError()`, or what the dispatcher threw) is scrubbed of every secret the endpoint URL carries, in both percent-encoded and decoded spellings — a PSR-18 client puts the full request URI into it, so masking the endpoint alone would leak the credential anyway.
+- `UrlMasker` is public API (`@api`) for applications rendering `webhook_deliveries` rows — `endpoint_url` and `last_error` carry the same secrets as the log messages:
+  `UrlMasker::mask(url): string` (userinfo password, query values and fragment → `***`; scheme/host/port/path/query keys survive) and
+  `UrlMasker::scrub(text, url): string` (the masked URL replaces the URL inside the text, then every secret it carries is removed wherever it occurs, percent-encoded or not). Pure static functions; use them instead of a local copy.
 - No DI config provided — app wires `OutboxWebhookPublisher` to `Processor`.
 
 ## API

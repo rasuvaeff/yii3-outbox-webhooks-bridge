@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- `UrlMasker` is public API: `@api` instead of `@internal` (#23). Applications
+  that render `webhook_deliveries` rows — `endpoint_url` and `last_error` carry
+  the endpoint's secrets the same way the bridge's log messages do — can call
+  `UrlMasker::mask()` / `UrlMasker::scrub()` directly instead of re-implementing
+  the redaction (which drifts: percent-decoded variants, longest-first
+  replacement, fragment handling) or eating psalm `InternalClass` /
+  `InternalMethod`. Behaviour is unchanged; the annotations and the docs are
+  the whole change.
+
 ## 1.1.0 — 2026-09-18
 
 ### Added

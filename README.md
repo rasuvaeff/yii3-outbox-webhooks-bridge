@@ -242,6 +242,28 @@ final readonly class DbWebhookEndpointProvider implements WebhookEndpointProvide
   query value (`?page=1`) makes this over-redact the text around it, which is
   the cheaper of the two mistakes.
 
+### Showing delivery rows: `UrlMasker`
+
+`webhook_deliveries` stores `endpoint_url` and `last_error` — both carry the
+endpoint's secrets, and whatever renders them (an operator page, an admin view,
+an API) needs the same redaction the bridge applies to its logs. `UrlMasker` is
+public API for exactly that; use it instead of a local copy:
+
+```php
+use Rasuvaeff\Yii3OutboxWebhooksBridge\UrlMasker;
+
+UrlMasker::mask('https://user:pass@host/e?access_token=secret&page=2#frag');
+// 'https://user:***@host/e?access_token=***&page=***#***'
+
+UrlMasker::scrub($delivery->lastError, $delivery->endpointUrl);
+// every secret the URL carries is removed from the error text,
+// percent-encoded or not, and the URL itself appears masked
+```
+
+Both are pure static functions; masking keeps scheme, host, port, path and
+query keys so the output stays diagnosable, and replaces the userinfo password,
+query values and the fragment with `***`.
+
 ## Examples
 
 See [`examples/`](examples/) for runnable scripts.
