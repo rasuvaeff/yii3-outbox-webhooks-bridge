@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Mutation testing now counts code the tests execute but do not name in `#[Covers]` (`infection --with-uncovered`); the `PublicVisibility` mutator is off and default values in parameter lists are ignored. No `src/` changes.
+
 ## 1.2.0 — 2026-10-17
 
 - `UrlMasker` is public API: `@api` instead of `@internal` (#23). Applications
