@@ -17,7 +17,7 @@
 
 ## Требования
 
-- PHP 8.3–8.5
+- PHP 8.3–8.6
 - `rasuvaeff/yii3-outbox` ^1.0
 - `rasuvaeff/yii3-webhooks` ^1.0 || ^2.0 — предпочитайте 2.x: там
   length-prefixed формат подписи и SSRF-защищённый `WebhookEndpoint`

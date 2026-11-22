@@ -22,7 +22,7 @@
         "source": "https://github.com/rasuvaeff/yii3-outbox-webhooks-bridge"
     },
     "require": {
-        "php": "8.3 - 8.5",
+        "php": "8.3 - 8.6",
         "rasuvaeff/yii3-outbox": "^1.7",
         "rasuvaeff/yii3-webhooks": "^1.0 || ^2.0"
     },

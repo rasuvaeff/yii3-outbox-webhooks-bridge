@@ -14,7 +14,7 @@ Bridges `yii3-outbox` and `yii3-webhooks` for durable at-least-once webhook deli
 
 ## Requirements
 
-- PHP 8.3–8.5
+- PHP 8.3–8.6
 - `rasuvaeff/yii3-outbox` ^1.0
 - `rasuvaeff/yii3-webhooks` ^1.0 || ^2.0 — prefer 2.x: it carries the
   length-prefixed signature format and the SSRF-hardened `WebhookEndpoint`
